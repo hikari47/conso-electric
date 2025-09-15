@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Règles pour la collection 'users'
+    match /users/{userId} {
+      // Un utilisateur peut lire et modifier son propre profil
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Tous les utilisateurs authentifiés peuvent lire les profils des autres
+      // (nécessaire pour afficher les noms dans les consommations)
+      allow read: if request.auth != null;
+    }
+    
+    // Règles pour la collection 'consommations'
+    match /consommations/{consommationId} {
+      // Tous les utilisateurs authentifiés peuvent lire les consommations
+      allow read: if request.auth != null;
+      
+      // Tous les utilisateurs authentifiés peuvent créer des consommations
+      allow create: if request.auth != null 
+        && request.auth.uid == resource.data.userId
+        && resource.data.statut == 'active'
+        && resource.data.totalKwh is number
+        && resource.data.totalMontant is number
+        && resource.data.contributions is list;
+      
+      // Tous les utilisateurs authentifiés peuvent modifier les consommations
+      // (pour ajouter des contributions ou fermer)
+      allow update: if request.auth != null
+        && (resource.data.statut == 'active' || resource.data.statut == 'closed')
+        && request.resource.data.statut in ['active', 'closed']
+        && request.resource.data.totalKwh is number
+        && request.resource.data.totalMontant is number
+        && request.resource.data.contributions is list;
+      
+      // Personne ne peut supprimer les consommations (pour garder l'historique)
+      allow delete: if false;
+    }
+  }
+}

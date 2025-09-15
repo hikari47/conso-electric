@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "809592852018",
+    "project_id": "consofam-c694f",
+    "storage_bucket": "consofam-c694f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809592852018:android:4c688d25d955eaaab6f62b",
+        "android_client_info": {
+          "package_name": "com.example.conso_famille"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBo0ia1zPOx8JFOi53bspPY_G61nh8OQ08"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
