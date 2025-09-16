@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/analytics_models.dart';
 import '../services/analytics_service.dart';
 
-
 class AnalyticsScreen extends StatefulWidget {
   @override
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
@@ -182,7 +181,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ),
                   Expanded(
                     child: ListTile(
-                      leading: Icon(Icons.calendar_view_year),
+                      leading: Icon(Icons.calendar_month_sharp),
                       title: Text('Année'),
                       subtitle: Text(_selectedYear.toString()),
                       trailing: Icon(Icons.arrow_drop_down),
@@ -194,7 +193,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ],
             if (_selectedPeriod == AnalyticsPeriod.annee) ...[
               ListTile(
-                leading: Icon(Icons.calendar_view_year),
+                leading: Icon(Icons.calendar_month_sharp),
                 title: Text('Année'),
                 subtitle: Text(_selectedYear.toString()),
                 trailing: Icon(Icons.arrow_drop_down),

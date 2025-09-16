@@ -1,7 +1,10 @@
+import 'package:conso_famille/screens/consommation_detail_screen.dart';
+import 'package:conso_famille/screens/modifier_profil_screen.dart';
+import 'package:conso_famille/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../services/consommation_service.dart';
-import '../router/app_routes.dart';
+// import '../router/app_routes.dart';
 import 'analytics_screen.dart'; // ✅ Ajouter cet import
 
 class ConsommationList extends StatefulWidget {
@@ -120,7 +123,21 @@ class _ConsommationListState extends State<ConsommationList> {
           ),
           IconButton(
             icon: Icon(Icons.person),
-            onPressed: () => context.go(AppRoutes.profil),
+            onPressed: () async {
+              final infoUser = await recupererProfilUtilisateur();
+              final nom = infoUser!['nom'];
+              final email = infoUser!['email'];
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => ModifierProfilScreen(
+                        nomInitial: nom,
+                        numeroInitial: email,
+                      ),
+                ),
+              );
+            },
             tooltip: 'Profil',
           ),
         ],
