@@ -1,11 +1,12 @@
 import 'package:conso_famille/screens/consommation_detail_screen.dart';
 import 'package:conso_famille/screens/modifier_profil_screen.dart';
 import 'package:conso_famille/services/user_service.dart';
+import 'package:conso_famille/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/consommation_service.dart';
-// import '../router/app_routes.dart';
-import 'analytics_screen.dart'; // ✅ Ajouter cet import
+import 'analytics_screen.dart';
 
 class ConsommationList extends StatefulWidget {
   @override
@@ -22,23 +23,69 @@ class _ConsommationListState extends State<ConsommationList> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text('Nouvelle consommation'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                SizedBox(width: 12),
+                Text(
+                  'Nouvelle consommation',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
             content: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Créer une nouvelle consommation fermera automatiquement la consommation active actuelle.',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.warningColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: AppTheme.warningColor,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Créer une nouvelle consommation fermera automatiquement la consommation active actuelle.',
+                            style: TextStyle(
+                              color: AppTheme.warningColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 20),
                   Form(
                     key: _formKey,
                     child: Column(
                       children: [
                         TextFormField(
-                          decoration: InputDecoration(labelText: 'kWh'),
+                          decoration: InputDecoration(
+                            labelText: 'Consommation (kWh)',
+                            prefixIcon: Icon(
+                              Icons.electrical_services,
+                              color: AppTheme.primaryColor,
+                            ),
+                            hintText: 'Ex: 150.5',
+                          ),
                           keyboardType: TextInputType.number,
                           validator:
                               (val) =>
@@ -51,6 +98,11 @@ class _ConsommationListState extends State<ConsommationList> {
                         TextFormField(
                           decoration: InputDecoration(
                             labelText: 'Montant (FCFA)',
+                            prefixIcon: Icon(
+                              Icons.monetization_on,
+                              color: AppTheme.primaryColor,
+                            ),
+                            hintText: 'Ex: 25000',
                           ),
                           keyboardType: TextInputType.number,
                           validator:
@@ -68,36 +120,26 @@ class _ConsommationListState extends State<ConsommationList> {
             ),
             actions: [
               TextButton(
+                onPressed: () => Navigator.of(context).pop(),
                 child: Text('Annuler'),
-                onPressed: () => Navigator.pop(context),
               ),
               ElevatedButton(
-                child: Text('Créer'),
                 onPressed: () async {
-                  print('one');
-                  print(kwh);
-                  print(montant);
                   if (_formKey.currentState!.validate() &&
                       kwh != null &&
                       montant != null) {
-                    print('two');
-                    try {
-                      print('three');
-                      // kwh = double.tryParse(kwh!.toString());
-                      // montant = double.tryParse(montant!.toString());
-                      print('four');
-                      await creerNouvelleConsommation(kwh!, montant!);
-                      print('five');
-                      Navigator.pop(context, true);
-                      print('six');
-                    } catch (e) {
-                      print('seven');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Erreur: ${e.toString()}')),
-                      );
-                    }
+                    Navigator.of(context).pop();
+                    await ajouterConsommation(kwh!, montant!);
+                    setState(() {});
                   }
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('Créer'),
               ),
             ],
           ),
@@ -107,38 +149,58 @@ class _ConsommationListState extends State<ConsommationList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('Consommations'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Mes Consommations',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
+        ),
         actions: [
-          // ✅ Ajouter le bouton d'analyse
-          IconButton(
-            icon: Icon(Icons.analytics),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => AnalyticsScreen()),
-              );
-            },
-            tooltip: 'Analyser les consommations',
+          Container(
+            margin: EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.analytics_outlined, color: Colors.white),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AnalyticsScreen()),
+                );
+              },
+              tooltip: 'Analyser les consommations',
+            ),
           ),
-          IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () async {
-              final infoUser = await recupererProfilUtilisateur();
-              final nom = infoUser!['nom'];
-              final email = infoUser!['email'];
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (context) => ModifierProfilScreen(
-                        nomInitial: nom,
-                        numeroInitial: email,
-                      ),
-                ),
-              );
-            },
-            tooltip: 'Profil',
+          Container(
+            margin: EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.person_outline, color: Colors.white),
+              onPressed: () async {
+                final infoUser = await recupererProfilUtilisateur();
+                final nom = infoUser!['nom'];
+                final email = infoUser!['email'];
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => ModifierProfilScreen(
+                          nomInitial: nom,
+                          numeroInitial: email,
+                        ),
+                  ),
+                );
+              },
+              tooltip: 'Profil',
+            ),
           ),
         ],
       ),
@@ -146,7 +208,9 @@ class _ConsommationListState extends State<ConsommationList> {
         stream: getConsommationsStream(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            );
           }
 
           final consommations = snapshot.data!;
@@ -156,86 +220,238 @@ class _ConsommationListState extends State<ConsommationList> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.electrical_services, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('Aucune consommation enregistrée'),
+                  Container(
+                    padding: EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.electrical_services_outlined,
+                      size: 64,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Aucune consommation enregistrée',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   SizedBox(height: 8),
-                  Text('Appuyez sur + pour créer la première'),
+                  Text(
+                    'Appuyez sur + pour créer la première consommation',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             );
           }
 
-          return ListView.builder(
-            itemCount: consommations.length,
-            itemBuilder: (context, index) {
-              final consommation = consommations[index];
-              return Card(
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        consommation.statut == 'active'
-                            ? Colors.green
-                            : Colors.grey,
-                    child: Icon(
-                      consommation.statut == 'active'
-                          ? Icons.play_arrow
-                          : Icons.stop,
-                      color: Colors.white,
+          return RefreshIndicator(
+            color: AppTheme.primaryColor,
+            onRefresh: () async {
+              setState(() {});
+            },
+            child: ListView.builder(
+              padding: EdgeInsets.all(16),
+              itemCount: consommations.length,
+              itemBuilder: (context, index) {
+                final consommation = consommations[index];
+                final isActive = consommation.statut == 'active';
+
+                return Container(
+                  margin: EdgeInsets.only(bottom: 16),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => ConsommationDetailScreen(
+                                  consommationId: consommation.id,
+                                ),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isActive
+                                            ? AppTheme.successColor
+                                            : AppTheme.textSecondary,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    isActive ? Icons.play_arrow : Icons.stop,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${consommation.totalKwh.toStringAsFixed(1)} kWh',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleLarge?.copyWith(
+                                          color: AppTheme.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${consommation.totalMontant.toStringAsFixed(0)} FCFA',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          color: AppTheme.primaryColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isActive
+                                            ? AppTheme.successColor.withOpacity(
+                                              0.1,
+                                            )
+                                            : AppTheme.textSecondary
+                                                .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color:
+                                          isActive
+                                              ? AppTheme.successColor
+                                              : AppTheme.textSecondary,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'ACTIVE' : 'FERMÉE',
+                                    style: TextStyle(
+                                      color:
+                                          isActive
+                                              ? AppTheme.successColor
+                                              : AppTheme.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.person_outline,
+                                  size: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Créée par ${consommation.nom}',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  _formatDate(consommation.dateCreation),
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.group_outlined,
+                                  size: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  '${consommation.contributions.length} contribution(s)',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                            if (consommation.statut == 'closed' &&
+                                consommation.fermeParNom != null) ...[
+                              SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.lock_outline,
+                                    size: 16,
+                                    color: AppTheme.errorColor,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Fermée par ${consommation.fermeParNom}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(color: AppTheme.errorColor),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  title: Text(
-                    '${consommation.totalKwh.toStringAsFixed(1)} kWh - ${consommation.totalMontant.toStringAsFixed(0)} FCFA',
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Créée par: ${consommation.nom}'),
-                      Text(
-                        'Créée le: ${_formatDate(consommation.dateCreation)}',
-                      ),
-                      Text(
-                        '${consommation.contributions.length} contribution(s)',
-                      ),
-                      if (consommation.statut == 'active')
-                        Text(
-                          'EN COURS',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      if (consommation.statut == 'closed' &&
-                          consommation.fermeParNom != null)
-                        Text(
-                          'Fermée par: ${consommation.fermeParNom}',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                    ],
-                  ),
-                  trailing: Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => ConsommationDetailScreen(
-                              consommationId: consommation.id,
-                            ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _ajouterConsommationDialog(context),
-        child: Icon(Icons.add),
-        tooltip: 'Nouvelle consommation',
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        icon: Icon(Icons.add),
+        label: Text('Nouvelle consommation'),
+        elevation: 6,
       ),
     );
   }

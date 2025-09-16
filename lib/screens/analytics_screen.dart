@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:conso_famille/theme/app_theme.dart';
 import '../models/analytics_models.dart';
 import '../services/analytics_service.dart';
 
@@ -7,7 +9,8 @@ class AnalyticsScreen extends StatefulWidget {
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
+class _AnalyticsScreenState extends State<AnalyticsScreen>
+    with TickerProviderStateMixin {
   AnalyticsPeriod _selectedPeriod = AnalyticsPeriod.semaine;
   DateTime _selectedDate = DateTime.now();
   int _selectedYear = DateTime.now().year;
@@ -21,10 +24,37 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _isLoading = false;
   String? _error;
 
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          switch (_tabController.index) {
+            case 0:
+              _selectedPeriod = AnalyticsPeriod.semaine;
+              break;
+            case 1:
+              _selectedPeriod = AnalyticsPeriod.mois;
+              break;
+            case 2:
+              _selectedPeriod = AnalyticsPeriod.annee;
+              break;
+          }
+        });
+        _loadData();
+      }
+    });
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -53,94 +83,383 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           break;
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      _error = e.toString();
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('Analyse des Consommations'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadData,
-            tooltip: 'Actualiser',
-          ),
-        ],
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Analyses & Statistiques',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: [Tab(text: 'Semaine'), Tab(text: 'Mois'), Tab(text: 'Année')],
+        ),
       ),
       body: Column(
         children: [
-          _buildPeriodSelector(),
-          _buildDateSelector(),
+          // Sélecteurs de période
+          Container(
+            color: Colors.white,
+            padding: EdgeInsets.all(16),
+            child: _buildPeriodSelectors(),
+          ),
+
+          // Contenu principal
           Expanded(
-            child:
-                _isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : _error != null
-                    ? _buildErrorWidget()
-                    : _buildContent(),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildWeeklyContent(),
+                _buildMonthlyContent(),
+                _buildYearlyContent(),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodSelector() {
-    return Card(
-      margin: EdgeInsets.all(8),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Période d\'analyse',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  Widget _buildPeriodSelectors() {
+    switch (_selectedPeriod) {
+      case AnalyticsPeriod.semaine:
+        return _buildWeekSelector();
+      case AnalyticsPeriod.mois:
+        return _buildMonthSelector();
+      case AnalyticsPeriod.annee:
+        return _buildYearSelector();
+    }
+  }
+
+  Widget _buildWeekSelector() {
+    return Row(
+      children: [
+        Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Semaine du ${_formatDate(_selectedDate)}',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
             ),
-            SizedBox(height: 8),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => _selectWeek(),
+          icon: Icon(Icons.edit_calendar, size: 18),
+          label: Text('Changer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthSelector() {
+    return Row(
+      children: [
+        Icon(Icons.calendar_month, color: AppTheme.primaryColor),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            '${_getMonthName(_selectedMonth)} $_selectedYear',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => _selectMonth(),
+          icon: Icon(Icons.edit_calendar, size: 18),
+          label: Text('Changer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYearSelector() {
+    return Row(
+      children: [
+        Icon(CupertinoIcons.calendar, color: AppTheme.primaryColor),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Année $_selectedYear',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => _selectYear(),
+          icon: Icon(Icons.edit_calendar, size: 18),
+          label: Text('Changer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyContent() {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      );
+    }
+
+    if (_error != null) {
+      return _buildErrorWidget();
+    }
+
+    if (_weeklyStats == null) {
+      return _buildEmptyWidget('Aucune donnée disponible pour cette semaine');
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatsCard(
+            'Consommation hebdomadaire',
+            '${_weeklyStats!.totalKwh.toStringAsFixed(1)} kWh',
+            '${_weeklyStats!.totalMontant.toStringAsFixed(0)} FCFA',
+            Icons.electrical_services,
+            AppTheme.primaryColor,
+          ),
+          SizedBox(height: 16),
+          _buildInfoCard([
+            _buildInfoRow(
+              'Consommations',
+              '${_weeklyStats!.nombreConsommations}',
+            ),
+            _buildInfoRow(
+              'Moyenne/jour',
+              '${_weeklyStats!.moyenneKwhParJour.toStringAsFixed(1)} kWh',
+            ),
+            _buildInfoRow(
+              'Dépense/jour',
+              '${_weeklyStats!.moyenneMontantParJour.toStringAsFixed(0)} FCFA',
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyContent() {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      );
+    }
+
+    if (_error != null) {
+      return _buildErrorWidget();
+    }
+
+    if (_monthlyStats == null) {
+      return _buildEmptyWidget('Aucune donnée disponible pour ce mois');
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatsCard(
+            'Consommation mensuelle',
+            '${_monthlyStats!.totalKwh.toStringAsFixed(1)} kWh',
+            '${_monthlyStats!.totalMontant.toStringAsFixed(0)} FCFA',
+            Icons.calendar_month,
+            AppTheme.primaryColor,
+          ),
+          SizedBox(height: 16),
+          if (_comparisonData != null) ...[
+            _buildComparisonCard(),
+            SizedBox(height: 16),
+          ],
+          _buildInfoCard([
+            _buildInfoRow(
+              'Consommations',
+              '${_monthlyStats!.nombreConsommations}',
+            ),
+            _buildInfoRow(
+              'Moyenne/jour',
+              '${_monthlyStats!.moyenneKwhParJour.toStringAsFixed(1)} kWh',
+            ),
+            _buildInfoRow(
+              'Dépense/jour',
+              '${_monthlyStats!.moyenneMontantParJour.toStringAsFixed(0)} FCFA',
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildYearlyContent() {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      );
+    }
+
+    if (_error != null) {
+      return _buildErrorWidget();
+    }
+
+    if (_yearlyStats == null) {
+      return _buildEmptyWidget('Aucune donnée disponible pour cette année');
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatsCard(
+            'Consommation annuelle',
+            '${_yearlyStats!.totalKwh.toStringAsFixed(1)} kWh',
+            '${_yearlyStats!.totalMontant.toStringAsFixed(0)} FCFA',
+            CupertinoIcons.calendar,
+            AppTheme.primaryColor,
+          ),
+          SizedBox(height: 16),
+          _buildMonthlyBreakdown(),
+          SizedBox(height: 16),
+          _buildInfoCard([
+            _buildInfoRow(
+              'Total consommations',
+              '${_yearlyStats!.nombreConsommations}',
+            ),
+            _buildInfoRow(
+              'Moyenne/mois',
+              '${_yearlyStats!.moyenneKwhParMois.toStringAsFixed(1)} kWh',
+            ),
+            _buildInfoRow(
+              'Dépense/mois',
+              '${_yearlyStats!.moyenneMontantParMois.toStringAsFixed(0)} FCFA',
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(
+    String title,
+    String kwh,
+    String montant,
+    IconData icon,
+    Color color,
+  ) {
+    return Card(
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
-                  child: RadioListTile<AnalyticsPeriod>(
-                    title: Text('Semaine'),
-                    value: AnalyticsPeriod.semaine,
-                    groupValue: _selectedPeriod,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedPeriod = value!;
-                      });
-                      _loadData();
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Consommation',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        kwh,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(
-                  child: RadioListTile<AnalyticsPeriod>(
-                    title: Text('Mois'),
-                    value: AnalyticsPeriod.mois,
-                    groupValue: _selectedPeriod,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedPeriod = value!;
-                      });
-                      _loadData();
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<AnalyticsPeriod>(
-                    title: Text('Année'),
-                    value: AnalyticsPeriod.annee,
-                    groupValue: _selectedPeriod,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedPeriod = value!;
-                      });
-                      _loadData();
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dépense',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        montant,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -151,422 +470,168 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildDateSelector() {
+  Widget _buildComparisonCard() {
     return Card(
-      margin: EdgeInsets.symmetric(horizontal: 8),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_selectedPeriod == AnalyticsPeriod.semaine) ...[
-              ListTile(
-                leading: Icon(Icons.calendar_today),
-                title: Text('Semaine du'),
-                subtitle: Text(_formatDate(_selectedDate)),
-                trailing: Icon(Icons.arrow_drop_down),
-                onTap: _selectWeek,
+            Text(
+              'Comparaison avec le mois précédent',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-            if (_selectedPeriod == AnalyticsPeriod.mois) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: ListTile(
-                      leading: Icon(Icons.calendar_month),
-                      title: Text('Mois'),
-                      subtitle: Text(_getMonthName(_selectedMonth)),
-                      trailing: Icon(Icons.arrow_drop_down),
-                      onTap: _selectMonth,
-                    ),
-                  ),
-                  Expanded(
-                    child: ListTile(
-                      leading: Icon(Icons.calendar_month_sharp),
-                      title: Text('Année'),
-                      subtitle: Text(_selectedYear.toString()),
-                      trailing: Icon(Icons.arrow_drop_down),
-                      onTap: _selectYear,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (_selectedPeriod == AnalyticsPeriod.annee) ...[
-              ListTile(
-                leading: Icon(Icons.calendar_month_sharp),
-                title: Text('Année'),
-                subtitle: Text(_selectedYear.toString()),
-                trailing: Icon(Icons.arrow_drop_down),
-                onTap: _selectYear,
-              ),
-            ],
+            ),
+            SizedBox(height: 16),
+            _buildComparisonRow(
+              'Consommation',
+              '${_comparisonData!.differenceKwh} kWh',
+              _comparisonData!.pourcentageKwh ?? 0,
+            ),
+            _buildComparisonRow(
+              'Dépense',
+              '${_comparisonData!.differenceMontant} FCFA',
+              _comparisonData!.pourcentageMontant ?? 0,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
-    switch (_selectedPeriod) {
-      case AnalyticsPeriod.semaine:
-        return _weeklyStats != null ? _buildWeeklyContent() : Container();
-      case AnalyticsPeriod.mois:
-        return _monthlyStats != null ? _buildMonthlyContent() : Container();
-      case AnalyticsPeriod.annee:
-        return _yearlyStats != null ? _buildYearlyContent() : Container();
-    }
-  }
+  Widget _buildComparisonRow(String label, String value, double percentage) {
+    final isPositive = percentage >= 0;
+    final color = isPositive ? AppTheme.successColor : AppTheme.errorColor;
 
-  Widget _buildWeeklyContent() {
-    final stats = _weeklyStats!;
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
         children: [
-          Text(
-            'Statistiques de la semaine',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ),
-          SizedBox(height: 16),
-          _buildStatsTable([
-            {
-              'Métrique': 'Période',
-              'Valeur':
-                  '${_formatDate(stats.weekStart)} - ${_formatDate(stats.weekEnd)}',
-            },
-            {
-              'Métrique': 'Total kWh',
-              'Valeur': '${stats.totalKwh.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Total Montant',
-              'Valeur': '${stats.totalMontant.toStringAsFixed(0)} FCFA',
-            },
-            {
-              'Métrique': 'Nombre de Consommations',
-              'Valeur': '${stats.nombreConsommations}',
-            },
-            {
-              'Métrique': 'Moyenne kWh/jour',
-              'Valeur': '${stats.moyenneKwhParJour.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Moyenne Montant/jour',
-              'Valeur':
-                  '${stats.moyenneMontantParJour.toStringAsFixed(0)} FCFA',
-            },
-          ]),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          SizedBox(width: 12),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${isPositive ? '+' : ''}${percentage.toStringAsFixed(1)}%',
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMonthlyContent() {
-    final stats = _monthlyStats!;
-    final comparison = _comparisonData!;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Statistiques du mois',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          _buildStatsTable([
-            {
-              'Métrique': 'Période',
-              'Valeur': '${stats.nomMois} ${stats.annee}',
-            },
-            {
-              'Métrique': 'Total kWh',
-              'Valeur': '${stats.totalKwh.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Total Montant',
-              'Valeur': '${stats.totalMontant.toStringAsFixed(0)} FCFA',
-            },
-            {
-              'Métrique': 'Nombre de Consommations',
-              'Valeur': '${stats.nombreConsommations}',
-            },
-            {
-              'Métrique': 'Moyenne kWh/jour',
-              'Valeur': '${stats.moyenneKwhParJour.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Moyenne Montant/jour',
-              'Valeur':
-                  '${stats.moyenneMontantParJour.toStringAsFixed(0)} FCFA',
-            },
-          ]),
-
-          if (comparison.moisPrecedent != null) ...[
-            SizedBox(height: 24),
+  Widget _buildMonthlyBreakdown() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              'Comparaison avec le mois précédent',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Détail par mois',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             SizedBox(height: 16),
-            _buildComparisonTable(comparison),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildYearlyContent() {
-    final stats = _yearlyStats!;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Statistiques de l\'année ${stats.annee}',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          _buildStatsTable([
-            {
-              'Métrique': 'Total kWh',
-              'Valeur': '${stats.totalKwh.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Total Montant',
-              'Valeur': '${stats.totalMontant.toStringAsFixed(0)} FCFA',
-            },
-            {
-              'Métrique': 'Nombre de Consommations',
-              'Valeur': '${stats.nombreConsommations}',
-            },
-            {
-              'Métrique': 'Moyenne kWh/mois',
-              'Valeur': '${stats.moyenneKwhParMois.toStringAsFixed(1)} kWh',
-            },
-            {
-              'Métrique': 'Moyenne Montant/mois',
-              'Valeur':
-                  '${stats.moyenneMontantParMois.toStringAsFixed(0)} FCFA',
-            },
-          ]),
-
-          SizedBox(height: 24),
-          Text(
-            'Détail par mois',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          _buildMonthlyDetailsTable(stats.moisStats),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsTable(List<Map<String, String>> data) {
-    return Card(
-      child: Table(
-        border: TableBorder.all(color: Colors.grey.shade300),
-        children:
-            data
-                .map(
-                  (row) => TableRow(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(
-                          row['Métrique']!,
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(row['Valeur']!),
-                      ),
-                    ],
-                  ),
-                )
-                .toList(),
-      ),
-    );
-  }
-
-  Widget _buildComparisonTable(ComparisonData comparison) {
-    return Card(
-      child: Table(
-        border: TableBorder.all(color: Colors.grey.shade300),
-        children: [
-          TableRow(
-            decoration: BoxDecoration(color: Colors.grey.shade100),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Métrique',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Mois actuel',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Mois précédent',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Différence',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          TableRow(
-            children: [
-              Padding(padding: EdgeInsets.all(12), child: Text('kWh')),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '${comparison.moisActuel.totalKwh.toStringAsFixed(1)}',
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '${comparison.moisPrecedent?.totalKwh.toStringAsFixed(1) ?? 'N/A'}',
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  comparison.differenceKwh != null
-                      ? '${comparison.differenceKwh!.toStringAsFixed(1)} (${comparison.pourcentageKwh!.toStringAsFixed(1)}%)'
-                      : 'N/A',
-                  style: TextStyle(
-                    color:
-                        comparison.differenceKwh != null &&
-                                comparison.differenceKwh! > 0
-                            ? Colors.red
-                            : Colors.green,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          TableRow(
-            children: [
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('Montant (FCFA)'),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '${comparison.moisActuel.totalMontant.toStringAsFixed(0)}',
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  '${comparison.moisPrecedent?.totalMontant.toStringAsFixed(0) ?? 'N/A'}',
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  comparison.differenceMontant != null
-                      ? '${comparison.differenceMontant!.toStringAsFixed(0)} (${comparison.pourcentageMontant!.toStringAsFixed(1)}%)'
-                      : 'N/A',
-                  style: TextStyle(
-                    color:
-                        comparison.differenceMontant != null &&
-                                comparison.differenceMontant! > 0
-                            ? Colors.red
-                            : Colors.green,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthlyDetailsTable(List<MonthlyStats> moisStats) {
-    return Card(
-      child: Table(
-        border: TableBorder.all(color: Colors.grey.shade300),
-        children: [
-          TableRow(
-            decoration: BoxDecoration(color: Colors.grey.shade100),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Mois',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'kWh',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Montant (FCFA)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Consommations',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          ...moisStats
-              .map(
-                (mois) => TableRow(
+            ...(_yearlyStats!.moisStats.map(
+              (month) => Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Row(
                   children: [
-                    Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(mois.nomMois),
+                    Expanded(
+                      child: Text(
+                        _getMonthName(month.mois),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(mois.totalKwh.toStringAsFixed(1)),
+                    Text(
+                      '${month.totalKwh.toStringAsFixed(1)} kWh',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(mois.totalMontant.toStringAsFixed(0)),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(mois.nombreConsommations.toString()),
+                    SizedBox(width: 16),
+                    Text(
+                      '${month.totalMontant.toStringAsFixed(0)} FCFA',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
-              )
-              .toList(),
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(List<Widget> children) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Détails',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryColor,
+            ),
+          ),
         ],
       ),
     );
@@ -577,11 +642,56 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error, size: 64, color: Colors.red),
+          Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
           SizedBox(height: 16),
-          Text('Erreur: $_error'),
+          Text(
+            'Erreur lors du chargement',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: AppTheme.errorColor),
+          ),
+          SizedBox(height: 8),
+          Text(
+            _error!,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.analytics_outlined,
+            size: 64,
+            color: AppTheme.textSecondary,
+          ),
           SizedBox(height: 16),
-          ElevatedButton(onPressed: _loadData, child: Text('Réessayer')),
+          Text(
+            'Aucune donnée',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: AppTheme.textSecondary),
+          ),
+          SizedBox(height: 8),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -603,52 +713,37 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<void> _selectMonth() async {
-    final months = List.generate(12, (index) => index + 1);
-    final month = await showDialog<int>(
+    final date = await showDatePicker(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('Sélectionner le mois'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  months
-                      .map(
-                        (m) => ListTile(
-                          title: Text(_getMonthName(m)),
-                          onTap: () => Navigator.pop(context, m),
-                        ),
-                      )
-                      .toList(),
-            ),
-          ),
+      initialDate: DateTime(_selectedYear, _selectedMonth),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
     );
-    if (month != null) {
+    if (date != null) {
       setState(() {
-        _selectedMonth = month;
+        _selectedYear = date.year;
+        _selectedMonth = date.month;
       });
       _loadData();
     }
   }
 
   Future<void> _selectYear() async {
-    final years = await AnalyticsService.getAvailableYears();
     final year = await showDialog<int>(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text('Sélectionner l\'année'),
+            title: Text('Sélectionner une année'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
-              children:
-                  years
-                      .map(
-                        (y) => ListTile(
-                          title: Text(y.toString()),
-                          onTap: () => Navigator.pop(context, y),
-                        ),
-                      )
-                      .toList(),
+              children: List.generate(
+                DateTime.now().year - 2019,
+                (index) => ListTile(
+                  title: Text('${DateTime.now().year - index}'),
+                  onTap:
+                      () => Navigator.pop(context, DateTime.now().year - index),
+                ),
+              ),
             ),
           ),
     );
@@ -664,9 +759,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  String _getMonthName(int mois) {
-    const moisNoms = [
-      '',
+  String _getMonthName(int month) {
+    const months = [
       'Janvier',
       'Février',
       'Mars',
@@ -680,6 +774,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       'Novembre',
       'Décembre',
     ];
-    return moisNoms[mois];
+    return months[month - 1];
   }
 }
